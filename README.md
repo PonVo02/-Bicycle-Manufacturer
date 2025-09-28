@@ -1,5 +1,8 @@
 # -Bicycle-Manufacturer
-
+### Project Introduction
+This project uses a sales dataset containing information about orders, products, discounts, customers, and inventory.  
+It is designed for practicing SQL through business-focused case questions.  
+By working with this dataset, I aim to apply SQL techniques such as aggregation, ranking, cohort analysis, and growth calculations to generate insights similar to real-world data analytics tasks.  
 [Dataset](https://console.cloud.google.com/bigquery?hl=vi&inv=1&invt=Ab1UAQ&project=my-project-sql-464309&ws=!1m5!1m4!4m3!1sadventureworks2019!2sSales!3sSalesOrderDetail)
 
 | Field Name            | Data Type  | Description                                                                 |
@@ -15,3 +18,4 @@
 | LineTotal             | FLOAT      | Total amount for this line item (calculated as OrderQty × UnitPrice - Discount). |
 | rowguid               | STRING     | Globally unique identifier (GUID) for the row.                              |
 | ModifiedDate          | TIMESTAMP  | The date and time when the record was last updated.                         |
+
