@@ -126,3 +126,178 @@ ORDER BY dk;
 ### 💡 Recommendations
 - Allocate more inventory and marketing to Mountain Frames, Socks, and Road Frames to sustain growth.
 - Investigate drivers of demand (promotions, seasonality, product launches) to replicate success in other categories.
+---
+## Query 3: Ranking Top 3 TeritoryID with biggest Order quantity of every year. If there's TerritoryID with same quantity in a year, do not skip the rank number
+```SQL
+WITH territory_sales AS ( --Tính tổng số lượng đơn hàng theo năm và khu vực (territotyID)
+  SELECT 
+    EXTRACT(YEAR FROM DATE(a.ModifiedDate)) AS yr,
+    b.TerritoryID,
+    SUM(a.OrderQty) AS order_quantity
+  FROM `adventureworks2019.Sales.SalesOrderDetail` AS a
+  JOIN `adventureworks2019.Sales.SalesOrderHeader` AS b
+    ON a.SalesOrderID = b.SalesOrderID
+  GROUP BY yr, b.TerritoryID
+),
+
+ranked_territories AS(-- Xếp hạng các khu vực theo tổng số lượng đặt hàng từng năm
+  SELECT 
+    yr,
+    TerritoryID,
+    order_quantity,
+    DENSE_RANK() OVER (PARTITION BY yr ORDER BY order_quantity DESC) AS rank
+  FROM territory_sales
+)
+-- top  3 khu vực mỗi năm theo số lượng đơn hàng
+SELECT *
+FROM ranked_territories
+WHERE rank <= 3
+ORDER BY MOD(yr,2), yr DESC;
+```
+| Year | TerritoryID | Order Quantity | Rank |
+|------|-------------|----------------|------|
+| 2014 | 4           | 11,632         | 1    |
+| 2014 | 6           | 9,711          | 2    |
+| 2014 | 1           | 8,823          | 3    |
+| 2013 | 4           | 26,682         | 1    |
+| 2013 | 6           | 22,553         | 2    |
+| 2013 | 1           | 17,452         | 3    |
+| 2012 | 4           | 17,553         | 1    |
+| 2012 | 6           | 14,412         | 2    |
+| 2012 | 1           | 8,537          | 3    |
+| 2011 | 4           | 3,238          | 1    |
+| 2011 | 6           | 2,705          | 2    |
+| 2011 | 1           | 1,964          | 3    |
+### 🔍 Insights
+- Territory 4 consistently ranked 1st in order quantity across all years.
+- Territory 6 held the 2nd position, showing stable but lower volume than Territory 4.
+- Territory 1 stayed at 3rd place each year, with lower order volume compared to others.
+
+💡 Recommendations
+- Prioritize resources and marketing in Territory 4 to maintain dominance.
+- Explore growth opportunities in Territory 6, which shows consistent demand but has potential to close the gap.
+- Investigate Territory 1 for barriers to growth and consider targeted campaigns to boost sales.
+--- 
+## Query 4: Calc Total Discount Cost belongs to Seasonal Discount for each SubCategory
+```SQL
+select 
+    FORMAT_TIMESTAMP("%Y", ModifiedDate)
+    , Name
+    , sum(disc_cost) as total_cost
+from (
+      select distinct a.ModifiedDate
+      , c.Name
+      , d.DiscountPct, d.Type
+      , a.OrderQty * d.DiscountPct * UnitPrice as disc_cost 
+      from `adventureworks2019.Sales.SalesOrderDetail` a
+      LEFT JOIN `adventureworks2019.Production.Product` b on a.ProductID = b.ProductID
+      LEFT JOIN `adventureworks2019.Production.ProductSubcategory` c on cast(b.ProductSubcategoryID as int) = c.ProductSubcategoryID
+      LEFT JOIN `adventureworks2019.Sales.SpecialOffer` d on a.SpecialOfferID = d.SpecialOfferID
+      WHERE lower(d.Type) like '%seasonal discount%' 
+)
+group by 1,2;
+```
+| Year | Subcategory | Total Discount Cost |
+|------|-------------|----------------------|
+| 2012 | Helmets     | 149.72               |
+| 2013 | Helmets     | 543.22               |
+### 🔍 Insights
+- Helmet discount cost increased sharply from 2012 (149.7) to 2013 (543.2).
+- This suggests higher promotion or seasonal discount activity on Helmets in 2013.
+
+### 💡 Recommendations
+- Evaluate effectiveness of the 2013 discount campaigns .
+- Optimize discount strategy to balance between driving sales and controlling costs.
+--- 
+## Query 5: Retention rate of Customer in 2014 with status of Successfully Shipped (Cohort Analysis)
+```SQL
+with 
+info as (
+  select  
+      extract(month from ModifiedDate) as month_no
+      , extract(year from ModifiedDate) as year_no
+      , CustomerID
+      , count(Distinct SalesOrderID) as order_cnt
+  from `adventureworks2019.Sales.SalesOrderHeader`
+  where FORMAT_TIMESTAMP("%Y", ModifiedDate) = '2014'
+  and Status = 5
+  group by 1,2,3
+  order by 3,1 
+),
+
+row_num as (
+  select *
+      , row_number() over (partition by CustomerID order by month_no) as row_numb
+  from info 
+), 
+
+first_order as (   
+  select *
+  from row_num
+  where row_numb = 1
+), 
+
+month_gap as (
+  select 
+      a.CustomerID
+      , b.month_no as month_join
+      , a.month_no as month_order
+      , a.order_cnt
+      , concat('M - ',a.month_no - b.month_no) as month_diff
+  from info a 
+  left join first_order b 
+  on a.CustomerID = b.CustomerID
+  order by 1,3
+)
+
+select month_join
+      , month_diff 
+      , count(distinct CustomerID) as customer_cnt
+from month_gap
+group by 1,2
+order by 1,2;
+```
+| Cohort Month | Period (M - n) | Customer Count |
+|--------------|----------------|----------------|
+| 1            | M - 0          | 2076           |
+| 1            | M - 1          | 78             |
+| 1            | M - 2          | 89             |
+| 1            | M - 3          | 252            |
+| 1            | M - 4          | 96             |
+| 1            | M - 5          | 61             |
+| 1            | M - 6          | 18             |
+| 2            | M - 0          | 1805           |
+| 2            | M - 1          | 51             |
+| 2            | M - 2          | 61             |
+| 2            | M - 3          | 234            |
+| 2            | M - 4          | 58             |
+| 2            | M - 5          | 8              |
+| 3            | M - 0          | 1918           |
+| 3            | M - 1          | 43             |
+| 3            | M - 2          | 58             |
+| 3            | M - 3          | 44             |
+| 3            | M - 4          | 11             |
+| 4            | M - 0          | 1906           |
+| 4            | M - 1          | 34             |
+| 4            | M - 2          | 44             |
+| 4            | M - 3          | 7              |
+| 5            | M - 0          | 1947           |
+| 5            | M - 1          | 40             |
+| 5            | M - 2          | 7              |
+| 6            | M - 0          | 909            |
+| 6            | M - 1          | 10             |
+| 7            | M - 0          | 148            |
+
+### 🔍 Insights
+- Customer acquisition is strong at M - 0 .
+- Retention drops sharply from M - 1 onward .
+- Some cohorts (like month 1, M - 3 = 252) show a slight spike of re-engagement, possibly due to campaigns or seasonality.
+- By later months, most cohorts shrink to very small numbers, indicating limited long-term retention.
+
+⸻
+
+💡 Recommendations
+	•	Strengthen onboarding & engagement in the first month to reduce early churn.
+	•	Analyze re-engagement campaigns (like cohort 1 at M - 3) and replicate what worked.
+	•	Introduce loyalty or subscription programs to improve long-term customer retention.
+	•	Segment churned users and run targeted win-back campaigns.
