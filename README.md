@@ -294,7 +294,7 @@ order by 1,2;
 - Some cohorts (like month 1, M - 3 = 252) show a slight spike of re-engagement, possibly due to campaigns or seasonality.
 - By later months, most cohorts shrink to very small numbers, indicating limited long-term retention.
 
-⸻
+---
 
 💡 Recommendations
 	•	Strengthen onboarding & engagement in the first month to reduce early churn.
